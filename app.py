@@ -36,36 +36,33 @@ st.markdown("""
         color: #f8fafc;
     }
     
-    /* Sports Card Aesthetic */
-    .pick-card {
+    /* Table Style */
+    .stTable {
         background: #1a1a1a;
-        border: 1px solid #262626;
         border-radius: 12px;
-        padding: 20px;
-        margin-bottom: 20px;
-        transition: all 0.2s ease-in-out;
     }
     
-    .pick-card:hover { border: 1px solid #afff00; transform: translateY(-2px); }
-    
     .status-pill {
-        padding: 2px 10px;
-        border-radius: 4px;
-        font-size: 0.7rem;
+        padding: 4px 12px;
+        border-radius: 6px;
+        font-size: 0.8rem;
         font-weight: 700;
         text-transform: uppercase;
-        letter-spacing: 0.1em;
     }
     
     .pill-lock { background: #afff00; color: #000; }
     .pill-value { background: #0ea5e9; color: #fff; }
     .pill-upset { background: #ef4444; color: #fff; }
 
-    .metric-value { font-family: 'JetBrains Mono', monospace; font-size: 1.8rem; font-weight: 700; color: #afff00; }
-    .metric-label { font-size: 0.8rem; color: #737373; text-transform: uppercase; letter-spacing: 0.05em; }
-    
-    /* Confidence Gauge Sidebar */
-    .gauge-container { text-align: center; padding: 10px; }
+    /* Custom Header */
+    .terminal-header {
+        background: linear-gradient(90deg, #afff00 0%, #0a0a0a 100%);
+        -webkit-background-clip: text;
+        -webkit-text-fill-color: transparent;
+        font-weight: 800;
+        font-size: 2.5rem;
+    }
+</style>
     
     /* Tactical Insights Hub */
     .insight-box {
@@ -106,8 +103,8 @@ with st.sidebar:
     st.image("https://img.icons8.com/isometric/512/stadium.png", width=80)
     st.title("ACCURACY ENGINE")
     
-    st.markdown("### 🏟️ Unit Management")
-    unit_size = st.number_input("Standard Unit Size ($)", min_value=1.0, value=10.0, step=5.0)
+    st.markdown("### 🏟️ Bankroll Management (CAD)")
+    unit_size = st.number_input("Standard Unit Size ($ CAD)", min_value=1.0, value=50.0, step=10.0)
     
     st.markdown("---")
     st.markdown("### 🏰 Home Field Advantage")
@@ -122,11 +119,11 @@ with st.sidebar:
         st.rerun()
 
 # --- Main Terminal View ---
-tab_forecasts, tab_upsets, tab_audit, tab_intel = st.tabs([
-    "🎯 Winner Forecasts", 
+tab_forecasts, tab_value, tab_upsets, tab_audit = st.tabs([
+    "🎯 Best Bets", 
+    "💳 +EV Value Plays",
     "🌪️ Likely Upsets", 
-    "📈 Accuracy Audit", 
-    "📡 Intelligence Hub"
+    "📈 Accuracy Audit"
 ])
 
 SPORT_KEY_MAP = {
@@ -140,75 +137,120 @@ SPORT_KEY_MAP = {
 injuries = engine["intel"].get_injury_reports(selected_sport)
 catalysts = {i['team']: 0.92 for i in injuries if i['status'] == "Out"} # Proactive hit for missing stars
 
-# --- TAB 1: WINNER FORECASTS ---
+# --- SHARED TABLE RENDERER ---
+def render_plotly_table(df, title):
+    fig = go.Figure(data=[go.Table(
+        header=dict(values=list(df.columns),
+                    fill_color='#1a1a1a',
+                    align='left',
+                    font=dict(color='#afff00', size=12)),
+        cells=dict(values=[df[col] for col in df.columns],
+                   fill_color='#0a0a0a',
+                   align='left',
+                   font=dict(color='white', size=11),
+                   height=30)
+    )])
+    fig.update_layout(margin=dict(l=0, r=0, t=0, b=0), height=400)
+    st.plotly_chart(fig, use_container_width=True)
+
+# --- TAB 1: BEST BETS ---
 with tab_forecasts:
-    st.title("🎯 High-Accuracy Winner Forecasts")
-    st.markdown("The most likely winners based on our ensemble accuracy engine.")
+    st.markdown('<h1 class="terminal-header">🎯 Best Bets (Highest Accuracy)</h1>', unsafe_allow_html=True)
+    st.markdown("Most predictable winner outcomes based on historical floor and current form.")
     
     odds_data = engine["api"].get_odds(sport=SPORT_KEY_MAP[selected_sport])
     df_picks = engine["api"].parse_odds(odds_data)
     
     if not df_picks.empty:
-        all_analyses = []
+        forecast_results = []
         for _, row in df_picks.iterrows():
             analysis = engine["predictor"].analyze_bet(
                 row['home_team'], row['away_team'], row['home_price'], row['away_price'], 
                 catalysts=catalysts, hfa=hfa_boost
             )
-            analysis['home']['book'] = row['home_book']
-            analysis['away']['book'] = row['away_book']
-            all_analyses.append(analysis)
+            winner_side = 'home' if analysis['home']['prob'] >= analysis['away']['prob'] else 'away'
+            res = analysis[winner_side]
             
-        # Sort by Win Probability
-        flat_results = []
-        for a in all_analyses:
-            # We focus on identifying the WINNER
-            winner_side = 'home' if a['home']['prob'] >= a['away']['prob'] else 'away'
-            flat_results.append({**a[winner_side], "opponent": a['away' if winner_side == 'home' else 'home']['team']})
+            # Formatting for Table
+            forecast_results.append({
+                "Date": datetime.fromisoformat(row['commence_time'].replace('Z', '+00:00')).strftime('%b %d, %H:%M'),
+                "Matchup": f"{row['home_team']} vs {row['away_team']}",
+                "Prediction": f"{res['team']} Win",
+                "Win Chance": f"{res['prob']:.1%}",
+                "Best Odds": f"{1/res['market_implied']:.2f} ({row[winner_side+'_book']})",
+                "Risk Level": engine["fin_engine"].assess_risk_level(res['prob'], res['edge']),
+                "Suggested Bet": engine["fin_engine"].format_cad(engine["fin_engine"].calculate_unit_stake(res['prob'], res['edge']) * unit_size)
+            })
             
-        flat_results = sorted(flat_results, key=lambda x: x['prob'], reverse=True)
+        forecast_df = pd.DataFrame(forecast_results).sort_values(by="Win Chance", ascending=False)
+        render_plotly_table(forecast_df, "Forecasts")
+    else:
+        st.info("Sync live market data to identify Best Bets.")
+
+# --- TAB 2: +EV VALUE PLAYS ---
+with tab_value:
+    st.markdown('<h1 class="terminal-header">💳 +EV Value Plays</h1>', unsafe_allow_html=True)
+    st.markdown("Identifying market discrepancies where our model sees significantly higher probability than the bookmakers.")
+    
+    if not df_picks.empty:
+        value_results = []
+        for _, row in df_picks.iterrows():
+            analysis = engine["predictor"].analyze_bet(
+                row['home_team'], row['away_team'], row['home_price'], row['away_price'], 
+                catalysts=catalysts, hfa=hfa_boost
+            )
+            
+            for side in ['home', 'away']:
+                res = analysis[side]
+                if res['edge'] > 0.05: # 5% minimum value edge
+                    value_results.append({
+                        "Date": datetime.fromisoformat(row['commence_time'].replace('Z', '+00:00')).strftime('%b %d, %H:%M'),
+                        "Team": res['team'],
+                        "Win Prob": f"{res['prob']:.1%}",
+                        "Market Prob": f"{res['market_implied']:.1%}",
+                        "Value Edge": f"{res['edge']:.1%}",
+                        "Best Odds": f"{1/res['market_implied']:.2f}",
+                        "Bet CAD": engine["fin_engine"].format_cad(engine["fin_engine"].calculate_unit_stake(res['prob'], res['edge']) * unit_size)
+                    })
         
-        for res in flat_results:
-            # Risk Logic & Units
-            risk_level = engine["fin_engine"].assess_risk_level(res['prob'], res['edge'])
-            rec_units = engine["fin_engine"].calculate_unit_stake(res['prob'], res['edge'])
+        if value_results:
+            value_df = pd.DataFrame(value_results).sort_values(by="Value Edge", ascending=False)
+            render_plotly_table(value_df, "Value Plays")
+        else:
+            st.info("No high-value discrepancies detected in current market cycle.")
+
+# --- TAB 3: LIKELY UPSETS ---
+with tab_upsets:
+    st.markdown('<h1 class="terminal-header">🌪️ Strategic Upset Alerts</h1>', unsafe_allow_html=True)
+    st.markdown("Underdogs with a statistically significant path to victory over favorites.")
+    
+    if not df_picks.empty:
+        upset_results = []
+        for _, row in df_picks.iterrows():
+            analysis = engine["predictor"].analyze_bet(
+                row['home_team'], row['away_team'], row['home_price'], row['away_price'], 
+                catalysts=catalysts, hfa=hfa_boost
+            )
             
-            p_color = "pill-lock" if res['prob'] > 0.65 else "pill-value"
-            best_price = 1 / res['market_implied']
-            
-            st.markdown(f"""
-            <div class="pick-card">
-                <div style="display: flex; justify-content: space-between; align-items: start;">
-                    <div>
-                        <span class="status-pill {p_color}">{risk_level}</span>
-                        <h3 style="margin: 10px 0;">{res['team']} to Win</h3>
-                        <p style="color: #737373;">Vs {res['opponent']} | 
-                           <strong style="color: #afff00;">Best Odds: {best_price:.2f} @ {res['book']}</strong>
-                        </p>
-                    </div>
-                    <div style="text-align: right;">
-                        <div class="metric-label">Execution Size</div>
-                        <div class="metric-value">{rec_units:.1f} Units</div>
-                        <div style="color: #afff00; font-size: 0.9rem;">~ ${rec_units * unit_size:,.2f}</div>
-                    </div>
-                </div>
-                <hr style="border-color: #262626;">
-                <div style="display: flex; gap: 40px;">
-                    <div>
-                        <div class="metric-label">Forecasted Win %</div>
-                        <div style="font-size: 1.4rem; font-weight: 700;">{res['prob']:.1%}</div>
-                    </div>
-                    <div>
-                        <div class="metric-label">Market Inefficiency</div>
-                        <div style="font-size: 1.4rem; font-weight: 700; color: #0ea5e9;">{res['edge']:.1%}</div>
-                    </div>
-                    <div>
-                        <div class="metric-label">Model Confidence</div>
-                        <div style="font-size: 1.4rem; font-weight: 700;">{res['confidence']:.0f}/100</div>
-                    </div>
-                </div>
-            </div>
-            """, unsafe_allow_html=True)
+            for side in ['home', 'away']:
+                res = analysis[side]
+                if res['market_implied'] < 0.45 and res['edge'] > 0.07:
+                    opponent = row['away_team'] if side == 'home' else row['home_team']
+                    upset_results.append({
+                        "Date": datetime.fromisoformat(row['commence_time'].replace('Z', '+00:00')).strftime('%b %d, %H:%M'),
+                        "Underdog": res['team'],
+                        "Vs Favorite": opponent,
+                        "Win Chance": f"{res['prob']:.1%}",
+                        "Best Odds": f"{1/res['market_implied']:.2f}",
+                        "Grade": "High Value" if res['prob'] > 0.45 else "Strategic Dog",
+                        "Bet CAD": engine["fin_engine"].format_cad(engine["fin_engine"].calculate_unit_stake(res['prob'], res['edge']) * unit_size)
+                    })
+        
+        if upset_results:
+            upset_df = pd.DataFrame(upset_results).sort_values(by="Win Chance", ascending=False)
+            render_plotly_table(upset_df, "Upsets")
+        else:
+            st.info("No strategic underdog upsets identified for current slate.")
     else:
         st.info("Sync live market data to identify winner forecasts.")
 

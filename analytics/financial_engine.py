@@ -56,17 +56,48 @@ class FinancialEngine:
         return min(5, base_units * confidence_multiplier)
 
     @staticmethod
+    def calculate_arbitrage(odds_h, odds_a, total_stake=100.0):
+        """
+        Calculates stakes for a guaranteed profit (Arbitrage).
+        Profit = (1 / total_inv) - 1
+        """
+        inv_h = 1 / odds_h
+        inv_a = 1 / odds_a
+        total_inv = inv_h + inv_a
+        
+        if total_inv >= 1.0:
+            return None # No arbitrage
+            
+        stake_h = (inv_h / total_inv) * total_stake
+        stake_a = (inv_a / total_inv) * total_stake
+        profit_pct = (1 / total_inv) - 1
+        
+        return {
+            "stake_h": stake_h,
+            "stake_a": stake_a,
+            "profit_pct": profit_pct,
+            "profit_cad": total_stake * profit_pct
+        }
+
+    @staticmethod
+    def format_cad(amount: float):
+        """Formats amount as Canadian Dollars (CAD)."""
+        return f"${amount:,.2f} CAD"
+
+    @staticmethod
     def assess_risk_level(prob, edge):
         """
-        Categorizes a bet into Specialist-Sports buckets.
+        Simplified risk categorization for best clarity.
         """
-        if prob > 0.70:
-            return "Elite Lock (High Accuracy)"
+        if prob > 0.72:
+            return "💎 Premier Lock (High Accuracy)"
+        elif edge > 0.12:
+            return "💰 Massive Value Play (+EV)"
+        elif prob > 0.55 and edge > 0.05:
+            return "✅ Recommended Play"
         elif prob > 0.40 and edge > 0.08:
-            return "Strategic Upset (High Value)"
-        elif prob > 0.55:
-            return "Standard Play"
-        return "Low Confidence"
+            return "🌪️ Strategic Upset Alert"
+        return "⚠️ Minor Play / Avoid"
 
 if __name__ == "__main__":
     fe = FinancialEngine()
