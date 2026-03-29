@@ -30,17 +30,43 @@ class FinancialEngine:
         return recommended_stake_pct
 
     @staticmethod
+    def calculate_unit_stake(win_prob, edge, confidence_multiplier=1.0):
+        """
+        Maps win probability and edge to a standard "Unit" system (1-5 units).
+        1 Unit = Standard Bet
+        3 Units = Strong Confidence
+        5 Units = Max Play / Whale
+        """
+        # Base units on winning probability first, then edge
+        base_units = 0
+        
+        if win_prob >= 0.75:
+            base_units = 4
+        elif win_prob >= 0.65:
+            base_units = 3
+        elif win_prob >= 0.58:
+            base_units = 2
+        elif win_prob >= 0.52:
+            base_units = 1
+            
+        # Add Bonus Units for significant Edge (Value)
+        if edge > 0.10:
+            base_units += 1
+            
+        return min(5, base_units * confidence_multiplier)
+
+    @staticmethod
     def assess_risk_level(prob, edge):
         """
-        Categorizes a bet into Low, Med, or High risk buckets.
+        Categorizes a bet into Specialist-Sports buckets.
         """
-        if prob > 0.65 and edge > 0.02:
-            return "Low (Safe Lock)"
-        elif prob > 0.45 and edge > 0.05:
-            return "Med (Strategic Value)"
-        elif edge > 0.10:
-            return "High (Upset Alert)"
-        return "Not Recommended"
+        if prob > 0.70:
+            return "Elite Lock (High Accuracy)"
+        elif prob > 0.40 and edge > 0.08:
+            return "Strategic Upset (High Value)"
+        elif prob > 0.55:
+            return "Standard Play"
+        return "Low Confidence"
 
 if __name__ == "__main__":
     fe = FinancialEngine()

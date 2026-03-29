@@ -10,7 +10,7 @@ class OddsAPI:
     API_KEY = os.getenv("ODDS_API_KEY")
 
     @classmethod
-    def get_odds(cls, sport="americanfootball_nfl", regions="us", markets="h2h"):
+    def get_odds(cls, sport="americanfootball_nfl", regions="us,uk,eu,au", markets="h2h"):
         """
         Fetch odds for a specific sport.
         Sports: 
@@ -38,31 +38,47 @@ class OddsAPI:
     @classmethod
     def parse_odds(cls, odds_data):
         """
-        Parses the raw JSON odds into a clean DataFrame.
+        Parses raw JSON odds into a clean DataFrame with the BEST prices across ALL books.
         """
         parsed = []
         for game in odds_data:
+            game_id = game.get("id")
             home_team = game.get("home_team")
             away_team = game.get("away_team")
             commence_time = game.get("commence_time")
             
-            # Find the best odds across bookmakers
+            # Aggregate best prices across all bookmakers
+            best_home_price = 0
+            best_away_price = 0
+            best_home_book = ""
+            best_away_book = ""
+            
             bookmakers = game.get("bookmakers", [])
             for book in bookmakers:
                 market = book.get("markets", [{}])[0]
                 outcomes = market.get("outcomes", [])
                 
                 prices = {o["name"]: o["price"] for o in outcomes}
+                h_price = prices.get(home_team, 0)
+                a_price = prices.get(away_team, 0)
                 
+                if h_price > best_home_price:
+                    best_home_price = h_price
+                    best_home_book = book.get("title")
+                if a_price > best_away_price:
+                    best_away_price = a_price
+                    best_away_book = book.get("title")
+                    
+            if best_home_price > 0:
                 parsed.append({
-                    "id": game.get("id"),
+                    "id": game_id,
                     "sport": game.get("sport_key"),
                     "commence_time": commence_time,
                     "home_team": home_team,
                     "away_team": away_team,
-                    "bookmaker": book.get("title"),
-                    "home_price": prices.get(home_team),
-                    "away_price": prices.get(away_team),
-                    "draw_price": prices.get("Draw") if "Draw" in prices else None
+                    "home_price": best_home_price,
+                    "home_book": best_home_book,
+                    "away_price": best_away_price,
+                    "away_book": best_away_book
                 })
         return pd.DataFrame(parsed)
