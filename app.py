@@ -264,9 +264,10 @@ with tab_intel:
     # AI Summarization Logic for News
     articles = engine["intel"].get_headlines(selected_sport)
     for art in articles[:5]:
+        s_name = art.get('source', {}).get('name', 'General Intel')
         st.markdown(f"""
         <div class="insight-box">
-            <strong>{art['title']}</strong> (via {art['source']['name']})
+            <strong>{art.get('title', 'Market Insight')}</strong> (via {s_name})
             <p style="font-size: 0.9rem;"><em>BEST BETS SUMMARY:</em> This news suggests a roster catalyst that our model has already factored into the forecasted win probability by -%.</p>
         </div>
         """, unsafe_allow_html=True)

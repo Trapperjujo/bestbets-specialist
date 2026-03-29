@@ -31,7 +31,17 @@ class NewsIntelligence:
             response = requests.get(url, timeout=5)
             if response.status_code == 200:
                 data = response.json()
-                return data.get('articles', [])
+                raw_articles = data.get('articles', [])
+                # Normalize keys for the frontend
+                normalized = []
+                for art in raw_articles:
+                    normalized.append({
+                        "title": art.get("headline", "Untitled Insight"),
+                        "description": art.get("description", ""),
+                        "source": {"name": "ESPN Intelligence"},
+                        "publishedAt": art.get("published", datetime.now().isoformat())
+                    })
+                return normalized
             return self._get_mock_news(league)
         except Exception:
             return self._get_mock_news(league)
