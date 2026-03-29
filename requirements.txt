@@ -1,0 +1,11 @@
+streamlit
+pandas
+plotly
+requests
+python-dotenv
+nba_api
+pybaseball
+nfl_data_py
+scikit-learn
+numpy
+scipy
