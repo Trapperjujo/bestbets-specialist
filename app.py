@@ -90,7 +90,7 @@ st.markdown("""
 
 # --- Initialization ---
 @st.cache_resource
-def init_engine():
+def init_specialist_engine():
     return {
         "predictor": SportsPredictor(),
         "api": OddsAPI(),
@@ -99,7 +99,7 @@ def init_engine():
         "intel": NewsIntelligence()
     }
 
-engine = init_engine()
+engine = init_specialist_engine()
 
 # --- Sidebar Pro Control Center ---
 with st.sidebar:
