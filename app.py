@@ -118,6 +118,24 @@ with st.sidebar:
         st.cache_data.clear()
         st.rerun()
 
+    st.markdown("---")
+    with st.expander("📘 QUICK START GUIDE & TERMINOLOGY"):
+        st.markdown("""
+        ### **1. Market Discrepancies (Value Edge)**
+        A discrepancy occurs when our **Accuracy Engine** sees a higher probability of a team winning than the bookmaker price implies. This gap represents the "Value Edge" where long-term profitability is found.
+        
+        ### **2. Win Chance (Forecasted %)**
+        The model's high-fidelity prediction of a team's actual win probability, integrating Elo strength, Poisson scoring rates, and real-time injury catalysts.
+        
+        ### **3. Suggested Bet (Execution Size)**
+        The exact **CAD ($)** amount recommended for this pick. It is calculated logically:
+        - Higher Win Chance = More Units.
+        - Higher Value Edge = More Units.
+        
+        ### **4. Sure Bets (Arbitrage)**
+        A mathematical way to **guarantee profit** by placing bets on all possible outcomes across different bookmakers at prices that cover the total investment.
+        """)
+
 # --- Main Terminal View ---
 tab_forecasts, tab_value, tab_upsets, tab_audit = st.tabs([
     "🎯 Best Bets", 
