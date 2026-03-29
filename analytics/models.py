@@ -70,6 +70,10 @@ class SportsPredictor:
         
         return final_prob_h, 1 - final_prob_h
 
+    def calculate_ev(self, model_prob, decimal_odds):
+        """Calculates the Expected Value of a bet."""
+        return (model_prob * decimal_odds) - 1
+
     def analyze_bet(self, home_team, away_team, home_odds, away_odds, catalysts=None, hfa=50, rest_h=2, rest_a=2):
         prob_h, prob_a = self.predict_matchup_ensemble(
             home_team, away_team, catalysts=catalysts, hfa=hfa, rest_days_h=rest_h, rest_days_a=rest_a
