@@ -9,3 +9,5 @@ nfl_data_py
 scikit-learn
 numpy
 scipy
+streamlit-extras
+streamlit-lottie
